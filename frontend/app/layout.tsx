@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   description: 'Real-time notification management system',
 };
 
+
 export default function RootLayout({
   children,
 }: {
