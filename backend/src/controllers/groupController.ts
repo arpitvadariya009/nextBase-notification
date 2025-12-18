@@ -1,53 +1,73 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { Types } from "mongoose";
-import { Group } from "../models/groupModel";
-import { User } from "../models/userModel";
+import { Group } from "../models/groupModel.js";
+import { User } from "../models/userModel.js";
+import { HttpError } from "../utils/httpError.js";
+import {
+    CreateGroupBody,
+    DeleteGroupBody,
+    GetGroupsQuery,
+} from "../types/group.js";
 
-
-export const createGroup = async (request: any, reply: FastifyReply) => {
+/**
+ * CREATE GROUP
+ */
+export const createGroup = async (
+    request: FastifyRequest<{ Body: CreateGroupBody }>,
+    reply: FastifyReply
+) => {
     try {
         const { name, description, members, createdBy } = request.body;
 
         if (!name) {
-            return reply.code(400).send({ error: "Group name is required" });
+            throw new HttpError("Group name is required", 400);
         }
 
         if (members && members.length > 0) {
             const users = await User.find({ _id: { $in: members } });
             if (users.length !== members.length) {
-                return reply.code(400).send({ error: "Some members do not exist" });
+                throw new HttpError("Some members do not exist", 400);
             }
         }
 
-        const group = await Group.create({
+        await Group.create({
             name,
             description,
-            members,
+            members: members?.map((id) => new Types.ObjectId(id)),
             createdBy: new Types.ObjectId(createdBy),
         });
 
+
         return reply.code(200).send({
             success: true,
-            message: "group created successfully"
+            message: "group created successfully",
         });
-    } catch (error: any) {
-        console.error(error);
-        return reply.code(500).send({ error: "Failed to create group" });
+    } catch (error) {
+        const err = error as HttpError;
+        return reply.code(err.statusCode || 500).send({
+            error: err.message || "Failed to create group",
+        });
     }
 };
 
-export const deleteGroup = async (request: any, reply: FastifyReply) => {
+/**
+ * DELETE GROUP
+ */
+export const deleteGroup = async (
+    request: FastifyRequest<{ Body: DeleteGroupBody }>,
+    reply: FastifyReply
+) => {
     try {
         const { id, userId } = request.body;
 
         const group = await Group.findById(id);
         if (!group) {
-            return reply.code(404).send({ error: "Group not found" });
+            throw new HttpError("Group not found", 404);
         }
 
-        // Only creator can delete the group
+        // only creator can delete
         if (group.createdBy.toString() !== userId) {
-            return reply.code(403).send({ error: "Not authorized to delete this group" });
+            throw new HttpError("Not authorized to delete this group", 403);
         }
 
         await Group.findByIdAndDelete(id);
@@ -56,30 +76,39 @@ export const deleteGroup = async (request: any, reply: FastifyReply) => {
             success: true,
             message: "Group deleted successfully",
         });
-    } catch (error: any) {
-        console.error(error);
-        return reply.code(500).send({ error: "Failed to delete group" });
+    } catch (error) {
+        const err = error as HttpError;
+        return reply.code(err.statusCode || 500).send({
+            error: err.message || "Failed to delete group",
+        });
     }
 };
 
-export const getGroupsByUser = async (request: any, reply: FastifyReply) => {
+/**
+ * GET GROUPS BY USER
+ */
+export const getGroupsByUser = async (
+    request: FastifyRequest<{ Querystring: GetGroupsQuery }>,
+    reply: FastifyReply
+) => {
     try {
         const { userId } = request.query;
 
         if (!userId) {
-            return reply.code(400).send({ error: "userId is required" });
+            throw new HttpError("userId is required", 400);
         }
 
-        const groups = await Group.find({ createdBy: userId })
+        const groups = await Group.find({ createdBy: userId });
 
         return reply.code(200).send({
             success: true,
             count: groups.length,
             data: groups,
         });
-
-    } catch (error: any) {
-        console.error(error);
-        return reply.code(500).send({ error: "Failed to fetch groups" });
+    } catch (error) {
+        const err = error as HttpError;
+        return reply.code(err.statusCode || 500).send({
+            error: err.message || "Failed to fetch groups",
+        });
     }
 };

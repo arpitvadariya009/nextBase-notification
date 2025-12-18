@@ -16,7 +16,7 @@ export default function NotificationToast({ event }: { event?: ToastData }) {
             setToast(event);
             setVisible(true);
 
-            const timer = setTimeout(() => setVisible(false), 5000);
+            const timer = setTimeout(() => setVisible(false), 9000);
             return () => clearTimeout(timer);
         }
     }, [event]);
